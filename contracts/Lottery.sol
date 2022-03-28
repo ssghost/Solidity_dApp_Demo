@@ -8,13 +8,14 @@ contract Lottery is Ownable, VRFConsumerBase {
     address payable[] public players;
     address payable public recentWinner;
     uint public usdPrice = 5 * 10 ** 18;
+    uint public result;
 
     enum State {Open, Close, Entered, Calculating}
     State public state;
 
-    bytes public keyHash;
+    bytes32 public keyHash;
     uint public vrfFee;
-    uint public randomness;
+    uint256 public randomness;
 
     AggregatorV3Interface internal priceFeed;
     constructor(address _priceFeed, address _vrfCoordinator, address _link, bytes32 _keyHash, uint _vrfFee) VRFConsumerBase(_vrfCoordinator, _link) {
@@ -32,7 +33,7 @@ contract Lottery is Ownable, VRFConsumerBase {
     }
 
     function getEntryFee() public view returns(uint) {
-        (, int price,,,) = priceFeed.latestRoundData;
+        (, int price,,,) = priceFeed.latestRoundData();
         return uint((usdPrice * 10 ** 8) / uint(price));
     }
 
@@ -45,16 +46,16 @@ contract Lottery is Ownable, VRFConsumerBase {
         require(state == State.Entered);
         state = State.Calculating;
         bytes32 reqId = requestRandomness(keyHash, vrfFee);
-        uint result = fulfillRandomness(reqId, randomness); 
+        fulfillRandomness(reqId, randomness); 
         recentWinner = players[result];
         recentWinner.transfer(address(this).balance);
         players = new address payable[](0);
         state = State.Close;
     }
 
-    function fulfillRandomness(bytes32 _reqId, uint _randomness) internal override view returns(uint) {
+    function fulfillRandomness(bytes32 _reqId, uint256 _randomness) internal override {
         require(state == State.Calculating);
         require(_randomness > 0);
-        return uint(_randomness % players.length);
+        result =  _randomness % players.length;
     }
 }
