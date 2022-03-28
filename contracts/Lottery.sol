@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
+import "@chainlink/contracts/src/v0.8/dev/VRFConsumerBase.sol";
 
 contract Lottery is Ownable, VRFConsumerBase {
     address payable[] public players;
@@ -17,7 +17,7 @@ contract Lottery is Ownable, VRFConsumerBase {
     uint public randomness;
 
     AggregatorV3Interface internal priceFeed;
-    constructor(address _priceFeed, address _vrfCoordinator, address _link, bytes _keyHash, uint _vrfFee) public VRFConsumerBase(_vrfCoordinator, _link) {
+    constructor(address _priceFeed, address _vrfCoordinator, address _link, bytes32 _keyHash, uint _vrfFee) VRFConsumerBase(_vrfCoordinator, _link) {
         priceFeed = AggregatorV3Interface(_priceFeed);
         state = State.Close;
         keyHash = _keyHash;
@@ -32,7 +32,7 @@ contract Lottery is Ownable, VRFConsumerBase {
     }
 
     function getEntryFee() public view returns(uint) {
-        (, int price,,,,) = priceFeed.latestRoundData;
+        (, int price,,,) = priceFeed.latestRoundData;
         return uint((usdPrice * 10 ** 8) / uint(price));
     }
 
@@ -44,7 +44,7 @@ contract Lottery is Ownable, VRFConsumerBase {
     function end() public onlyOwner {
         require(state == State.Entered);
         state = State.Calculating;
-        bytes reqId = requestRandomness(keyHash, vrfFee);
+        bytes32 reqId = requestRandomness(keyHash, vrfFee);
         uint result = fulfillRandomness(reqId, randomness); 
         recentWinner = players[result];
         recentWinner.transfer(address(this).balance);
@@ -52,7 +52,7 @@ contract Lottery is Ownable, VRFConsumerBase {
         state = State.Close;
     }
 
-    function fulfillRandomness(bytes _reqId, uint _randomness) internal override view returns(uint) {
+    function fulfillRandomness(bytes32 _reqId, uint _randomness) internal override view returns(uint) {
         require(state == State.Calculating);
         require(_randomness > 0);
         return uint(_randomness % players.length);
